@@ -1,3 +1,4 @@
 Fix-various-typos-in-ChangeLog.patch
 Enable-PrivateTmp-in-the-systemd-service-files.patch
 Make-the-example-config-valid.patch
+cve_2026_35092_35091.patch

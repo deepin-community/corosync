@@ -1,0 +1,54 @@
+Description: Fix two security vulnerabilities in totemsrp
+ - CVE-2026-35091: Fix wrong return value in memb_commit_token sanity check
+   Previously, check_memb_commit_token_sanity returned 0 (success) instead
+   of -1 (failure) when the message was too short, leading to out-of-bounds
+   read and potential denial of service.
+ - CVE-2026-35092: Fix integer overflow in memb_join_sanity
+   The 32-bit unsigned network values proc_list_entries and failed_list_entries
+   were added together before being promoted to size_t, allowing integer
+   overflow (wraparound) and resulting in incorrectly small required_len.
+Author: Jan Friesse <jfriesse@redhat.com>
+Origin: upstream, https://github.com/corosync/corosync
+Bug: https://security-tracker.debian.org/tracker/CVE-2026-35091
+Bug: https://security-tracker.debian.org/tracker/CVE-2026-35092
+Forwarded: not-needed
+---
+ exec/totemsrp.c | 16 +++++++++++++---
+ 1 file changed, 13 insertions(+), 3 deletions(-)
+
+diff --git a/exec/totemsrp.c b/exec/totemsrp.c
+index 949d367..0de538a 100644
+--- a/exec/totemsrp.c
++++ b/exec/totemsrp.c
+@@ -3755,7 +3755,17 @@ static int check_memb_join_sanity(
+ 		failed_list_entries = swab32(failed_list_entries);
+ 	}
+ 
+-	required_len = sizeof(struct memb_join) + ((proc_list_entries + failed_list_entries) * sizeof(struct srp_addr));
++	if (proc_list_entries > PROCESSOR_COUNT_MAX ||
++	    failed_list_entries > PROCESSOR_COUNT_MAX) {
++		log_printf (instance->totemsrp_log_level_security,
++		    "Received memb_join message list_entries exceeds the maximum "
++		    "allowed value...  ignoring.");
++
++		return (-1);
++	}
++
++	required_len = sizeof(struct memb_join) +
++	  (((size_t)proc_list_entries + (size_t)failed_list_entries) * sizeof(struct srp_addr));
+ 	if (msg_len < required_len) {
+ 		log_printf (instance->totemsrp_log_level_security,
+ 		    "Received memb_join message is too short...  ignoring.");
+@@ -3780,10 +3790,10 @@ static int check_memb_commit_token_sanity(
+ 		log_printf (instance->totemsrp_log_level_security,
+ 		    "Received memb_commit_token message is too short...  ignoring.");
+ 
+-		return (0);
++		return (-1);
+ 	}
+ 
+-	addr_entries= mct_msg->addr_entries;
++	addr_entries = mct_msg->addr_entries;
+ 	if (endian_conversion_needed) {
+ 		addr_entries = swab32(addr_entries);
+ 	}

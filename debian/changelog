@@ -1,3 +1,17 @@
+corosync (3.1.5-2deepin1) unstable; urgency=medium
+
+  * Fix CVE-2026-35091: Return error if sanity check fails in totemsrp
+    A remote unauthenticated attacker can exploit a wrong return value
+    vulnerability in the membership commit token sanity check by sending
+    a specially crafted UDP packet, leading to out-of-bounds read and
+    denial of service.
+  * Fix CVE-2026-35092: Fix integer overflow in memb_join_sanity
+    An integer overflow vulnerability in join message sanity validation
+    allows a remote unauthenticated attacker to send crafted UDP packets,
+    causing the service to crash (denial of service).
+
+ -- deepin-ci-robot <packages@deepin.org>  Wed, 15 Apr 2026 17:07:38 +0800
+
 corosync (3.1.5-2) unstable; urgency=medium
 
   * [a836090] Revert "No need to override the default /usr/lib/systemd/system
@@ -9,14 +23,6 @@ corosync (3.1.5-2) unstable; urgency=medium
 
  -- Ferenc Wágner <wferi@debian.org>  Fri, 01 Oct 2021 20:28:56 +0200
 
-corosync (3.1.5-1) unstable; urgency=medium
-
-  * [929fb0c] New upstream release (3.1.5)
-  * [56b0b8f] Remove upstreamed patches, refresh the rest
-  * [f231d94] Switch to Debhelper compatibility level 13
-  * [65638bc] Update Standards-Version to 4.6.0 (no changes required)
-  * [e710e1f] No need to override the default /usr/lib/systemd/system systemd
-    directory anymore
 
  -- Ferenc Wágner <wferi@debian.org>  Thu, 30 Sep 2021 22:38:39 +0200
 
