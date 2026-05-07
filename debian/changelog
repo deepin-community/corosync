@@ -1,3 +1,12 @@
+corosync (3.1.5-3) unstable; urgency=medium
+
+  * [fix] CVE-2025-30472: Fix stack-based buffer overflow in orf_token endian convert
+    - Added size check for orf_token message before endian conversion
+    - Prevents crash from carefully crafted malicious UDP packets
+    - Upstream: https://github.com/corosync/corosync/commit/7839990f9cdf34e55435ed90109e82709032466a
+
+ -- deepin-ci-robot <packages@deepin.org>  Thu, 08 May 2026 01:10:00 +0800
+
 corosync (3.1.5-2) unstable; urgency=medium
 
   * [a836090] Revert "No need to override the default /usr/lib/systemd/system
