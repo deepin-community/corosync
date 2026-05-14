@@ -379,6 +379,8 @@ int _logsys_system_setup(
 	qb_log_ctl(QB_LOG_BLACKBOX, QB_LOG_CONF_ENABLED, QB_FALSE);
 
 	if (logsys_format_set(NULL) == -1) {
+		pthread_mutex_unlock (&logsys_config_mutex);
+
 		return -1;
 	}
 
@@ -799,6 +801,23 @@ void logsys_config_apply(void)
 		}
 		_logsys_config_apply_per_subsys(s);
 	}
+}
+
+extern int logsys_config_debug_get (
+	const char *subsys)
+{
+	int debug_level = logsys_loggers[0].debug;
+	int i;
+
+	if (subsys != NULL) {
+		pthread_mutex_lock (&logsys_config_mutex);
+		i = _logsys_config_subsys_get_unlocked (subsys);
+		if (i >= 0) {
+			debug_level = logsys_loggers[i].debug;
+		}
+		pthread_mutex_unlock (&logsys_config_mutex);
+	}
+	return debug_level;
 }
 
 int logsys_config_debug_set (

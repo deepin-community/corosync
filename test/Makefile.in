@@ -151,7 +151,8 @@ am__v_lt_1 =
 cpgbenchzc_SOURCES = cpgbenchzc.c
 cpgbenchzc_OBJECTS = cpgbenchzc.$(OBJEXT)
 cpgbenchzc_DEPENDENCIES = $(am__DEPENDENCIES_1) \
-	$(top_builddir)/lib/libcpg.la
+	$(top_builddir)/lib/libcpg.la \
+	$(top_builddir)/common_lib/libcorosync_common.la
 cpgbound_SOURCES = cpgbound.c
 cpgbound_OBJECTS = cpgbound.$(OBJEXT)
 cpgbound_DEPENDENCIES = $(am__DEPENDENCIES_1) \
@@ -203,7 +204,7 @@ testquorummodel_DEPENDENCIES = $(am__DEPENDENCIES_1) \
 testsam_SOURCES = testsam.c
 testsam_OBJECTS = testsam.$(OBJEXT)
 testsam_DEPENDENCIES = $(am__DEPENDENCIES_1) \
-	$(top_builddir)/lib/libsam.la
+	$(top_builddir)/lib/libsam.la $(top_builddir)/lib/libcmap.la
 testvotequorum1_SOURCES = testvotequorum1.c
 testvotequorum1_OBJECTS = testvotequorum1.$(OBJEXT)
 testvotequorum1_DEPENDENCIES = $(am__DEPENDENCIES_1) \
@@ -297,10 +298,13 @@ AUTOHEADER = @AUTOHEADER@
 AUTOMAKE = @AUTOMAKE@
 AWK = @AWK@
 BASHPATH = @BASHPATH@
+BINDGEN = @BINDGEN@
+CARGO = @CARGO@
 CC = @CC@
 CCDEPMODE = @CCDEPMODE@
 CFG_SONAME = @CFG_SONAME@
 CFLAGS = @CFLAGS@
+CLIPPY = @CLIPPY@
 CMAP_SONAME = @CMAP_SONAME@
 COROSYSCONFDIR = @COROSYSCONFDIR@
 CPG_SONAME = @CPG_SONAME@
@@ -366,6 +370,11 @@ PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
 PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 QUORUM_SONAME = @QUORUM_SONAME@
 RANLIB = @RANLIB@
+RUSTC = @RUSTC@
+RUSTDOC = @RUSTDOC@
+RUSTFMT = @RUSTFMT@
+RUST_FLAGS = @RUST_FLAGS@
+RUST_TARGET_DIR = @RUST_TARGET_DIR@
 SAM_SONAME = @SAM_SONAME@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
@@ -401,6 +410,7 @@ build_cpu = @build_cpu@
 build_os = @build_os@
 build_vendor = @build_vendor@
 builddir = @builddir@
+corosyncrustver = @corosyncrustver@
 datadir = @datadir@
 datarootdir = @datarootdir@
 docdir = @docdir@
@@ -460,8 +470,12 @@ testvotequorum1_LDADD = $(LIBQB_LIBS) $(top_builddir)/lib/libvotequorum.la
 testvotequorum2_LDADD = $(LIBQB_LIBS) $(top_builddir)/lib/libvotequorum.la
 cpgbound_LDADD = $(LIBQB_LIBS) $(top_builddir)/lib/libcpg.la
 cpgbench_LDADD = $(LIBQB_LIBS) $(top_builddir)/lib/libcpg.la
-cpgbenchzc_LDADD = $(LIBQB_LIBS) $(top_builddir)/lib/libcpg.la
-testsam_LDADD = $(LIBQB_LIBS) $(top_builddir)/lib/libsam.la
+cpgbenchzc_LDADD = $(LIBQB_LIBS) $(top_builddir)/lib/libcpg.la \
+			  $(top_builddir)/common_lib/libcorosync_common.la
+
+testsam_LDADD = $(LIBQB_LIBS) $(top_builddir)/lib/libsam.la \
+			  $(top_builddir)/lib/libcmap.la
+
 testcfg_LDADD = $(LIBQB_LIBS) $(top_builddir)/lib/libcfg.la
 @HAVE_CRC32_TRUE@cpghum_LDADD = $(LIBQB_LIBS) $(top_builddir)/lib/libcpg.la -lz
 @HAVE_CRC32_TRUE@cpgverify_LDADD = $(LIBQB_LIBS) $(top_builddir)/lib/libcpg.la -lz

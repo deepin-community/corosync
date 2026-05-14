@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2020 Red Hat, Inc.
+ * Copyright (c) 2016-2022 Red Hat, Inc.
  *
  * All rights reserved.
  *
@@ -93,6 +93,8 @@ static int setup_nozzle(void *knet_context);
 struct totemknet_instance {
 	struct crypto_instance *crypto_inst;
 
+	struct knet_handle_crypto_cfg last_good_crypto_cfg;
+
 	qb_loop_t *poll_handle;
 
         knet_handle_t knet_handle;
@@ -101,13 +103,13 @@ struct totemknet_instance {
 
 	void *context;
 
-	void (*totemknet_deliver_fn) (
+	int (*totemknet_deliver_fn) (
 		void *context,
 		const void *msg,
 		unsigned int msg_len,
 		const struct sockaddr_storage *system_from);
 
-	void (*totemknet_iface_change_fn) (
+	int (*totemknet_iface_change_fn) (
 		void *context,
 		const struct totem_ip_address *iface_address,
 		unsigned int link_no);
@@ -769,6 +771,13 @@ static int log_deliver_fn (
 					    knet_log_get_subsystem_name(msg->subsystem),
 					    msg->msg);
 			break;
+#ifdef KNET_LOG_TRACE
+		case KNET_LOG_TRACE:
+			libknet_log_printf (LOGSYS_LEVEL_TRACE, "%s: %s",
+					    knet_log_get_subsystem_name(msg->subsystem),
+					    msg->msg);
+			break;
+#endif
 		}
 		bufptr += sizeof(struct knet_log_msg);
 		done += sizeof(struct knet_log_msg);
@@ -858,14 +867,20 @@ static void timer_function_netif_check_timeout (
 {
 	struct totemknet_instance *instance = (struct totemknet_instance *)data;
 	int i;
+	int res = 0;
 
 	for (i=0; i < INTERFACE_MAX; i++) {
 		if (!instance->totem_config->interfaces[i].configured) {
 			continue;
 		}
-		instance->totemknet_iface_change_fn (instance->context,
-						     &instance->my_ids[i],
-						     i);
+		res = instance->totemknet_iface_change_fn (instance->context,
+							   &instance->my_ids[i],
+							   i);
+	}
+	if (res != 0) {
+		/* This is only called at startup, so we can quit here.
+		   Refresh takes a different path */
+		corosync_exit_error(COROSYNC_DONE_MAINCONFIGREAD);
 	}
 }
 
@@ -885,6 +900,47 @@ static void knet_set_access_list_config(struct totemknet_instance *instance)
 #endif
 }
 
+void totemknet_configure_log_level()
+{
+	int logsys_log_mode;
+	int knet_log_mode = KNET_LOG_INFO;
+	uint8_t s;
+	int err;
+
+	if (!global_instance || !global_instance->knet_handle) {
+		return;
+	}
+
+	/* Reconfigure logging level */
+	logsys_log_mode = logsys_config_debug_get("KNET");
+
+	switch (logsys_log_mode) {
+		case LOGSYS_DEBUG_OFF:
+			knet_log_mode = KNET_LOG_INFO;
+			break;
+		case LOGSYS_DEBUG_ON:
+			knet_log_mode = KNET_LOG_DEBUG;
+			break;
+		case LOGSYS_DEBUG_TRACE:
+#ifdef KNET_LOG_TRACE
+			knet_log_mode = KNET_LOG_TRACE;
+#else
+			knet_log_mode = KNET_LOG_DEBUG;
+#endif
+			break;
+	}
+	log_printf (LOGSYS_LEVEL_DEBUG, "totemknet setting log level %s", knet_log_get_loglevel_name(knet_log_mode));
+	err = 0;
+	for (s = 0; s<KNET_MAX_SUBSYSTEMS; s++) {
+		err = knet_log_set_loglevel(global_instance->knet_handle, s, knet_log_mode);
+	}
+
+	/* If one fails, they all fail. no point in issuing KNET_MAX_SUBSYSTEMS errors */
+	if (err) {
+		log_printf (LOGSYS_LEVEL_ERROR, "totemknet failed to set log level: %s", strerror(errno));
+	}
+}
+
 
 /* NOTE: this relies on the fact that totem_reload_notify() is called first */
 static void totemknet_refresh_config(
@@ -895,7 +951,7 @@ static void totemknet_refresh_config(
 	void *user_data)
 {
 	uint8_t reloading;
-	uint32_t value;
+	int after_reload;
 	uint32_t link_no;
 	size_t num_nodes;
 	knet_node_id_t host_ids[KNET_MAX_HOST];
@@ -913,15 +969,24 @@ static void totemknet_refresh_config(
 		return;
 	}
 
+	after_reload = (strcmp(key_name, "config.totemconfig_reload_in_progress") == 0);
+
 	knet_set_access_list_config(instance);
 
-	if (icmap_get_uint32("totem.knet_pmtud_interval", &value) == CS_OK) {
-
-		instance->totem_config->knet_pmtud_interval = value;
-		knet_log_printf (LOGSYS_LEVEL_DEBUG, "knet_pmtud_interval now %d", value);
+	if (strcmp(key_name, "totem.knet_pmtud_interval") == 0 || after_reload) {
+		knet_log_printf (LOGSYS_LEVEL_DEBUG, "knet_pmtud_interval now %u",
+		    instance->totem_config->knet_pmtud_interval);
 		err = knet_handle_pmtud_setfreq(instance->knet_handle, instance->totem_config->knet_pmtud_interval);
 		if (err) {
 			KNET_LOGSYS_PERROR(errno, LOGSYS_LEVEL_WARNING, "knet_handle_pmtud_setfreq failed");
+		}
+	}
+
+	if (strcmp(key_name, "totem.knet_mtu") == 0 || after_reload) {
+		knet_log_printf (LOGSYS_LEVEL_DEBUG, "knet_mtu now %u", instance->totem_config->knet_mtu);
+		err = knet_handle_pmtud_set(instance->knet_handle, instance->totem_config->knet_mtu);
+		if (err) {
+			KNET_LOGSYS_PERROR(errno, LOGSYS_LEVEL_WARNING, "knet_handle_pmtud failed");
 		}
 	}
 
@@ -932,6 +997,7 @@ static void totemknet_refresh_config(
 	}
 
 	for (i=0; i<num_nodes; i++) {
+		int linkerr = 0;
 		for (link_no = 0; link_no < INTERFACE_MAX; link_no++) {
 			if (host_ids[i] == instance->our_nodeid || !instance->totem_config->interfaces[link_no].configured) {
 				continue;
@@ -943,21 +1009,28 @@ static void totemknet_refresh_config(
 							instance->totem_config->interfaces[link_no].knet_ping_precision);
 			if (err) {
 				KNET_LOGSYS_PERROR(errno, LOGSYS_LEVEL_ERROR, "knet_link_set_ping_timers for node " CS_PRI_NODE_ID " link %d failed", host_ids[i], link_no);
+				linkerr = err;
 			}
 			err = knet_link_set_pong_count(instance->knet_handle, host_ids[i], link_no,
 						       instance->totem_config->interfaces[link_no].knet_pong_count);
 			if (err) {
 				KNET_LOGSYS_PERROR(errno, LOGSYS_LEVEL_ERROR, "knet_link_set_pong_count for node " CS_PRI_NODE_ID " link %d failed",host_ids[i], link_no);
+				linkerr = err;
 			}
 			err = knet_link_set_priority(instance->knet_handle, host_ids[i], link_no,
 						     instance->totem_config->interfaces[link_no].knet_link_priority);
 			if (err) {
 				KNET_LOGSYS_PERROR(errno, LOGSYS_LEVEL_ERROR, "knet_link_set_priority for node " CS_PRI_NODE_ID " link %d failed", host_ids[i], link_no);
+				linkerr = err;
 			}
 
 		}
+		if (linkerr) {
+			icmap_set_string("config.reload_error_message", "Failed to set knet ping timers(2)");
+		}
 	}
 
+	/* Log levels get reconfigured from logconfig.c as that happens last in the reload */
 	LEAVE();
 }
 
@@ -1022,6 +1095,10 @@ static int totemknet_set_knet_crypto(struct totemknet_instance *instance)
 
 	/* use_config will be called later when all nodes are synced */
 	res = knet_handle_crypto_set_config(instance->knet_handle, &crypto_cfg, instance->totem_config->crypto_index);
+	if (res == 0) {
+		/* Keep a copy in case it fails in future */
+		memcpy(&instance->last_good_crypto_cfg, &crypto_cfg, sizeof(crypto_cfg));
+	}
 	if (res == -1) {
 		knet_log_printf(LOGSYS_LEVEL_ERROR, "knet_handle_crypto_set_config (index %d) failed: %s", instance->totem_config->crypto_index, strerror(errno));
 		goto exit_error;
@@ -1048,8 +1125,24 @@ static int totemknet_set_knet_crypto(struct totemknet_instance *instance)
 	}
 #endif
 
-
 exit_error:
+#ifdef HAVE_KNET_CRYPTO_RECONF
+	if (res) {
+		icmap_set_string("config.reload_error_message", "Failed to set crypto parameters");
+
+		/* Restore the old values in cmap & totem_config */
+		icmap_set_string("totem.crypto_cipher", instance->last_good_crypto_cfg.crypto_cipher_type);
+		icmap_set_string("totem.crypto_hash",  instance->last_good_crypto_cfg.crypto_hash_type);
+		icmap_set_string("totem.crypto_model",  instance->last_good_crypto_cfg.crypto_model);
+
+		memcpy(instance->totem_config->crypto_hash_type, instance->last_good_crypto_cfg.crypto_hash_type,
+		       sizeof(instance->last_good_crypto_cfg.crypto_hash_type));
+		memcpy(instance->totem_config->crypto_cipher_type, instance->last_good_crypto_cfg.crypto_cipher_type,
+		       sizeof(instance->last_good_crypto_cfg.crypto_cipher_type));
+		memcpy(instance->totem_config->crypto_model, instance->last_good_crypto_cfg.crypto_model,
+		       sizeof(instance->last_good_crypto_cfg.crypto_model));
+	}
+#endif
 	return res;
 }
 
@@ -1063,13 +1156,13 @@ int totemknet_initialize (
 	totemsrp_stats_t *stats,
 	void *context,
 
-	void (*deliver_fn) (
+	int (*deliver_fn) (
 		void *context,
 		const void *msg,
 		unsigned int msg_len,
 		const struct sockaddr_storage *system_from),
 
-	void (*iface_change_fn) (
+	int (*iface_change_fn) (
 		void *context,
 		const struct totem_ip_address *iface_address,
 		unsigned int link_no),
@@ -1182,6 +1275,10 @@ int totemknet_initialize (
 	if (res) {
 		KNET_LOGSYS_PERROR(errno, LOGSYS_LEVEL_WARNING, "knet_handle_pmtud_setfreq failed");
 	}
+	res = knet_handle_pmtud_set(instance->knet_handle, instance->totem_config->knet_mtu);
+	if (res) {
+		KNET_LOGSYS_PERROR(errno, LOGSYS_LEVEL_WARNING, "knet_handle_pmtud_set failed");
+	}
 	res = knet_handle_enable_filter(instance->knet_handle, instance, dst_host_filter_callback_fn);
 	if (res) {
 		KNET_LOGSYS_PERROR(errno, LOGSYS_LEVEL_WARNING, "knet_handle_enable_filter failed");
@@ -1199,6 +1296,9 @@ int totemknet_initialize (
 		KNET_LOGSYS_PERROR(errno, LOGSYS_LEVEL_WARNING, "knet_handle_enable_pmtud_notify failed");
 	}
 	global_instance = instance;
+
+	/* Setup knet logging level */
+	totemknet_configure_log_level();
 
 	/* Get an fd into knet */
 	instance->knet_fd = 0;
@@ -1569,20 +1669,37 @@ int totemknet_member_add (
 		KNET_LOGSYS_PERROR(errno, LOGSYS_LEVEL_ERROR, "knet_link_set_priority for nodeid " CS_PRI_NODE_ID ", link %d failed", member->nodeid, link_no);
 	}
 
-	/* ping timeouts maybe 0 here for a newly added interface so we leave this till later, it will
-	   get done in totemknet_refresh_config */
+	/*
+	 * Ping timeouts may be 0 here for a newly added interface (on a reload),
+	 * so we leave this till later, it will get done in totemknet_refresh_config.
+	 * For the initial startup, we are all preset and ready to go from here.
+	 */
 	if (instance->totem_config->interfaces[link_no].knet_ping_interval != 0) {
 		err = knet_link_set_ping_timers(instance->knet_handle, member->nodeid, link_no,
 						instance->totem_config->interfaces[link_no].knet_ping_interval,
 						instance->totem_config->interfaces[link_no].knet_ping_timeout,
 						instance->totem_config->interfaces[link_no].knet_ping_precision);
 		if (err) {
+			/* Flush logs before reporting this error so that the knet message prints before ours */
+			int saved_errno = errno;
+			log_flush_messages(instance);
+			errno = saved_errno;
 			KNET_LOGSYS_PERROR(errno, LOGSYS_LEVEL_ERROR, "knet_link_set_ping_timers for nodeid " CS_PRI_NODE_ID ", link %d failed", member->nodeid, link_no);
+
+			icmap_set_string("config.reload_error_message", "Failed to set knet ping timers");
+
+			return -1;
 		}
 		err = knet_link_set_pong_count(instance->knet_handle, member->nodeid, link_no,
 					       instance->totem_config->interfaces[link_no].knet_pong_count);
 		if (err) {
+			/* Flush logs before reporting this error so that the knet message prints before ours */
+			int saved_errno = errno;
+			log_flush_messages(instance);
+			errno = saved_errno;
 			KNET_LOGSYS_PERROR(errno, LOGSYS_LEVEL_ERROR, "knet_link_set_pong_count for nodeid " CS_PRI_NODE_ID ", link %d failed", member->nodeid, link_no);
+			icmap_set_string("config.reload_error_message", "Failed to set knet pong count");
+			return -1;
 		}
 	}
 
@@ -1690,11 +1807,14 @@ int totemknet_reconfigure (
 		/* Flip crypto_index */
 		totem_config->crypto_index = 3-totem_config->crypto_index;
 		res = totemknet_set_knet_crypto(instance);
-
-		knet_log_printf(LOG_INFO, "kronosnet crypto reconfigured on index %d: %s/%s/%s", totem_config->crypto_index,
-				totem_config->crypto_model,
-				totem_config->crypto_cipher_type,
-				totem_config->crypto_hash_type);
+		if (res == 0) {
+			knet_log_printf(LOG_INFO, "kronosnet crypto reconfigured on index %d: %s/%s/%s", totem_config->crypto_index,
+					totem_config->crypto_model,
+					totem_config->crypto_cipher_type,
+					totem_config->crypto_hash_type);
+		} else {
+			icmap_set_string("config.reload_error_message", "Failed to set knet crypto");
+		}
 	}
 	return (res);
 }

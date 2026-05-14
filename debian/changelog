@@ -1,3 +1,113 @@
+corosync (3.1.9-2+deb13u1) trixie-security; urgency=high
+
+  * [128a6c1] New patch: totemsrp: Return error if sanity check fails.
+    Fixes CVE-2026-35091. Thanks to Jan Friesse (Closes: #1133838)
+  * [f46d7eb] New patch: totemsrp: Fix integer overflow in memb_join_sanity.
+    Fixes CVE-2026-35092. Thanks to Jan Friesse (Closes: #1133837)
+
+ -- Ferenc Wágner <wferi@debian.org>  Thu, 07 May 2026 22:36:24 +0200
+
+corosync (3.1.9-2) unstable; urgency=medium
+
+  * [d29071e] New patch: totemsrp: Check size of orf_token msg.
+    Cherry-picked security fix for CVE-2025-30472, upstream commit
+    7839990f9cdf34e55435ed90109e82709032466a.
+    Corosync through 3.1.9, if encryption is disabled or the attacker knows
+    the encryption key, has a stack-based buffer overflow in
+    orf_token_endian_convert in exec/totemsrp.c via a large UDP packet.
+    Thanks to Jan Friesse (Closes: #1102006)
+
+ -- Ferenc Wágner <wferi@debian.org>  Sat, 21 Jun 2025 11:54:36 +0200
+
+corosync (3.1.9-1) unstable; urgency=medium
+
+  * [f7dc244] New upstream release (3.1.9)
+  * [f1ccd93] Drop upstreamed patch, refresh the rest
+  * [0683a43] Update copyright years
+  * [55b8efd] Update symbols files.
+    Upstream commit 8d46eb01277 added version info to several already
+    exported symbols.  (It also removed a couple of names from the version
+    scripts, but that part does not change the export lists since the
+    respective symbols have long been removed from the libraries.)  Since
+    the new versions are also the default versions when resolving
+    unversioned references, applications linked against the old Corosync
+    libraries will find the new versioned symbols, so this change does not
+    break the ABI.
+  * [7e53a49] Update Standards-Version to 4.7.2 (no changes required)
+
+ -- Ferenc Wágner <wferi@debian.org>  Sun, 02 Mar 2025 16:52:12 +0100
+
+corosync (3.1.8-3) unstable; urgency=medium
+
+  * [192c744] Revert "Revert "No need to override the default
+    /usr/lib/systemd/system systemd directory anymore""
+    This reverts commit a836090ec1d812f6a73d13aa14f752cc5fbf5ffa.
+    Now dh_installsystemd handles service files under /usr/lib correctly,
+    so let DEP17 (Improve situation around aliasing effects from /usr-merge)
+    proceed by moving our service files to /usr/lib/systemd/system.
+    (Closes: #1073683)
+
+ -- Ferenc Wágner <wferi@debian.org>  Sat, 20 Jul 2024 19:32:52 +0200
+
+corosync (3.1.8-2) unstable; urgency=medium
+
+  * [c241cd2] corosync-blackbox uses qb-blackbox, so pull in libqb-tools
+
+ -- Ferenc Wágner <wferi@debian.org>  Sun, 26 May 2024 13:22:53 +0200
+
+corosync (3.1.8-1) unstable; urgency=medium
+
+  * [974f5df] New upstream release (3.1.8)
+  * [09f4624] Refresh our patches
+  * [c5c5cb7] Update Standards-Version to 4.7.0 (no changes required)
+  * [e586635] Drop obsolete lsb-base dependencies.
+    The lsb-base package is used by the init scripts, which are only run
+    by sysv-rc, which has already depended on lsb-base since bullseye.
+  * [a1ad0ae] pkgconf superseded pkg-config
+  * [06322b1] New patch: Move corosync-notifyd policy file into
+    /usr/share/dbus-1/system.d
+  * [7c73d96] Ship the relocated corosync-notifyd policy file and remove the old
+    conffile
+  * [f8b234b] Update copyright years, fix copy&paste error
+
+ -- Ferenc Wágner <wferi@debian.org>  Sun, 26 May 2024 12:28:18 +0200
+
+corosync (3.1.7-1) unstable; urgency=medium
+
+  * [f3d69c9] New upstream release (3.1.7)
+  * [7ca438c] Delete upstream patch, refresh the rest
+  * [36863f4] Update Standards-Version to 4.6.2 (no changes required)
+  * [02c7690] Update copyright of the packaging
+  * [ae14a7c] Adapt Lintian overrides to new message format
+  * [7732c89] The initscript-dir variable has long fallen out of use
+  * [faafc6e] New patch: Revert "logrotate: Use copytruncate method by default"
+  * [cab0938] Add logrotate autopkgtest
+
+ -- Ferenc Wágner <wferi@debian.org>  Sun, 15 Jan 2023 15:00:42 +0100
+
+corosync (3.1.6-2) unstable; urgency=medium
+
+  [ Debian Janitor ]
+  * [290ca16] Remove 2 obsolete maintscript entries in 2 files.
+    Changes-By: lintian-brush
+  * [8d89318] Update renamed lintian tag names in lintian overrides.
+    Changes-By: lintian-brush
+    Fixes: lintian: renamed-tag
+    See-also: https://lintian.debian.org/tags/renamed-tag.html
+
+  [ Ferenc Wágner ]
+  * [f8c32e7] New patch: Remove bashism from configure script (Closes: #998785)
+
+ -- Ferenc Wágner <wferi@debian.org>  Sun, 06 Mar 2022 20:07:05 +0100
+
+corosync (3.1.6-1) unstable; urgency=medium
+
+  * [1c6e48f] Make use of the execute_before_* feature of dh 12.8+
+  * [e6b31ef] New upstream release (3.1.6)
+  * [81eed39] Refresh our patches
+
+ -- Ferenc Wágner <wferi@debian.org>  Mon, 22 Nov 2021 19:40:15 +0100
+
 corosync (3.1.5-2) unstable; urgency=medium
 
   * [a836090] Revert "No need to override the default /usr/lib/systemd/system

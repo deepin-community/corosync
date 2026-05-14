@@ -35,10 +35,10 @@
 
 /*
  * The first version of this code was based upon Yair Amir's PhD thesis:
- *	http://www.cs.jhu.edu/~yairamir/phd.ps) (ch4,5).
+ *	https://corosync.github.io/corosync/doc/Yair_phd.ps.gz (ch4,5).
  *
  * The current version of totemsrp implements the Totem protocol specified in:
- * 	http://citeseer.ist.psu.edu/amir95totem.html
+ * 	https://corosync.github.io/corosync/doc/tocssrp95.ps.gz
  *
  * The deviations from the above published protocols are:
  * - token hold mode where token doesn't rotate on unused ring - reduces cpu
@@ -664,13 +664,13 @@ static void *totemsrp_buffer_alloc (struct totemsrp_instance *instance);
 static void totemsrp_buffer_release (struct totemsrp_instance *instance, void *ptr);
 static const char* gsfrom_to_msg(enum gather_state_from gsfrom);
 
-void main_deliver_fn (
+int main_deliver_fn (
 	void *context,
 	const void *msg,
 	unsigned int msg_len,
 	const struct sockaddr_storage *system_from);
 
-void main_iface_change_fn (
+int main_iface_change_fn (
 	void *context,
 	const struct totem_ip_address *iface_address,
 	unsigned int iface_no);
@@ -770,10 +770,9 @@ static int pause_flush (struct totemsrp_instance *instance)
 static int token_event_stats_collector (enum totem_callback_token_type type, const void *void_instance)
 {
 	struct totemsrp_instance *instance = (struct totemsrp_instance *)void_instance;
-	uint32_t time_now;
-	unsigned long long nano_secs = qb_util_nano_current_get ();
+	uint64_t time_now;
 
-	time_now = (nano_secs / QB_TIME_NS_IN_MSEC);
+	time_now = (qb_util_nano_current_get() / QB_TIME_NS_IN_MSEC);
 
 	if (type == TOTEM_CALLBACK_TOKEN_RECEIVED) {
 		/* incr latest token the index */
@@ -1751,7 +1750,7 @@ static void timer_function_orf_token_warning (void *data)
 		tv_diff = qb_util_nano_current_get () / QB_TIME_NS_IN_MSEC -
 			instance->stats.token[instance->stats.latest_token].rx;
 		log_printf (instance->totemsrp_log_level_notice,
-			"Token has not been received in %d ms ", (unsigned int) tv_diff);
+			"Token has not been received in %"PRIu64" ms", tv_diff);
 		reset_token_warning(instance);
         } else {
 		cancel_token_warning(instance);
@@ -1989,12 +1988,26 @@ static void memb_state_operational_enter (struct totemsrp_instance *instance)
 		trans_memb_list_totemip, instance->my_trans_memb_entries,
 		left_list, instance->my_left_memb_entries,
 		0, 0, &instance->my_ring_id);
+	/*
+	 * Switch new totemsrp messages queue. Messages sent from now on are stored
+	 * in different queue so synchronization messages are delivered first. Totempg
+	 * buffers will be switched later.
+	 */
 	instance->waiting_trans_ack = 1;
-	instance->totemsrp_waiting_trans_ack_cb_fn (1);
 
 // TODO we need to filter to ensure we only deliver those
 // messages which are part of instance->my_deliver_memb
 	messages_deliver_to_app (instance, 1, instance->old_ring_state_high_seq_received);
+
+	/*
+	 * Switch totempg buffers. This used to be right after
+	 *   instance->waiting_trans_ack = 1;
+	 * line. This was causing problem, because there may be not yet
+	 * processed parts of messages in totempg buffers.
+	 * So when buffers were switched and recovered messages
+	 * got delivered it was not possible to assemble them.
+	 */
+	instance->totemsrp_waiting_trans_ack_cb_fn (1);
 
 	instance->my_aru = aru_save;
 
@@ -2920,6 +2933,7 @@ static int orf_token_rtr (
 
 static void token_retransmit (struct totemsrp_instance *instance)
 {
+	instance->stats.orf_token_tx++;
 	totemnet_token_send (instance->totemnet_context,
 		instance->orf_token_retransmit,
 		instance->orf_token_retransmit_size);
@@ -3004,6 +3018,7 @@ static int token_send (
 		return (0);
 	}
 
+	instance->stats.orf_token_tx++;
 	totemnet_token_send (instance->totemnet_context,
 		orf_token,
 		orf_token_size);
@@ -3058,7 +3073,6 @@ static int orf_token_send_initial (struct totemsrp_instance *instance)
 	orf_token.token_seq = SEQNO_START_TOKEN;
 	orf_token.retrans_flg = 1;
 	instance->my_set_retrans_flg = 1;
-	instance->stats.orf_token_tx++;
 
 	if (cs_queue_is_empty (&instance->retrans_message_queue) == 1) {
 		orf_token.retrans_flg = 0;
@@ -3821,7 +3835,9 @@ static int check_token_hold_cancel_sanity(
  * Message Handlers
  */
 
-unsigned long long int tv_old;
+#ifdef GIVEINFO
+uint64_t tv_old;
+#endif
 /*
  * message handler called when TOKEN message type received
  */
@@ -3841,15 +3857,15 @@ static int message_handler_orf_token (
 	unsigned int last_aru;
 
 #ifdef GIVEINFO
-	unsigned long long tv_current;
-	unsigned long long tv_diff;
+	uint64_t tv_current;
+	uint64_t tv_diff;
 
 	tv_current = qb_util_nano_current_get ();
 	tv_diff = tv_current - tv_old;
 	tv_old = tv_current;
 
 	log_printf (instance->totemsrp_log_level_debug,
-	"Time since last token %0.4f ms", ((float)tv_diff) / 1000000.0);
+	    "Time since last token %0.4f ms", tv_diff / (float)QB_TIME_NS_IN_MSEC);
 #endif
 
 	if (check_orf_token_sanity(instance, msg, msg_len, endian_conversion_needed) == -1) {
@@ -3981,8 +3997,9 @@ static int message_handler_orf_token (
 		transmits_allowed = fcc_calculate (instance, token);
 		mcasted_retransmit = orf_token_rtr (instance, token, &transmits_allowed);
 
-		if (instance->my_token_held == 1 &&
-			(token->rtr_list_entries > 0 || mcasted_retransmit > 0)) {
+		if (instance->totem_config->cancel_token_hold_on_retransmit &&
+		    instance->my_token_held == 1 &&
+		    (token->rtr_list_entries > 0 || mcasted_retransmit > 0)) {
 			instance->my_token_held = 0;
 			forward_token = 1;
 		}
@@ -4105,7 +4122,7 @@ printf ("token seq %d\n", token->seq);
 			tv_old = tv_current;
 			log_printf (instance->totemsrp_log_level_debug,
 				"I held %0.4f ms",
-				((float)tv_diff) / 1000000.0);
+				tv_diff / (float)QB_TIME_NS_IN_MSEC);
 #endif
 			if (instance->memb_state == MEMB_STATE_OPERATIONAL) {
 				messages_deliver_to_app (instance, 0,
@@ -5017,7 +5034,7 @@ static int check_message_header_validity(
 }
 
 
-void main_deliver_fn (
+int main_deliver_fn (
 	void *context,
 	const void *msg,
 	unsigned int msg_len,
@@ -5027,7 +5044,7 @@ void main_deliver_fn (
 	const struct totem_message_header *message_header = msg;
 
 	if (check_message_header_validity(context, msg, msg_len, system_from) == -1) {
-		return ;
+		return -1;
 	}
 
 	switch (message_header->type) {
@@ -5056,12 +5073,12 @@ void main_deliver_fn (
 		    (int)message_header->type);
 
 		instance->stats.rx_msg_dropped++;
-		return;
+		return 0;
 	}
 	/*
 	 * Handle incoming message
 	 */
-	totemsrp_message_handlers.handler_functions[(int)message_header->type] (
+	return totemsrp_message_handlers.handler_functions[(int)message_header->type] (
 		instance,
 		msg,
 		msg_len,
@@ -5089,7 +5106,7 @@ int totemsrp_iface_set (
 }
 
 /* Contrary to its name, this only gets called when the interface is enabled */
-void main_iface_change_fn (
+int main_iface_change_fn (
 	void *context,
 	const struct totem_ip_address *iface_addr,
 	unsigned int iface_no)
@@ -5097,6 +5114,7 @@ void main_iface_change_fn (
 	struct totemsrp_instance *instance = context;
 	int num_interfaces;
 	int i;
+	int res = 0;
 
 	if (!instance->my_id.nodeid) {
 		instance->my_id.nodeid = iface_addr->nodeid;
@@ -5139,11 +5157,12 @@ void main_iface_change_fn (
 		assert(instance->totem_config->orig_interfaces != NULL);
 		memset(instance->totem_config->orig_interfaces, 0, sizeof (struct totem_interface) * INTERFACE_MAX);
 
-		totemconfig_commit_new_params(instance->totem_config, icmap_get_global_map());
+		res = totemconfig_commit_new_params(instance->totem_config, icmap_get_global_map());
 
 		memb_state_gather_enter (instance, TOTEMSRP_GSFROM_INTERFACE_CHANGE);
 		free(instance->totem_config->orig_interfaces);
 	}
+	return res;
 }
 
 void totemsrp_net_mtu_adjust (struct totem_config *totem_config) {

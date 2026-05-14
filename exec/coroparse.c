@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2019 Red Hat, Inc.
+ * Copyright (c) 2006-2022 Red Hat, Inc.
  *
  * All rights reserved.
  *
@@ -121,6 +121,7 @@ struct main_cp_cb_data {
 	int knet_ping_precision;
 	int knet_pong_count;
 	int knet_pmtud_interval;
+	unsigned int knet_mtu;
 	char *knet_transport;
 
 	struct qb_list_head logger_subsys_items_head;
@@ -248,7 +249,7 @@ static char *strchr_rs (const char *haystack, int byte)
 	if (end_address) {
 		end_address += 1; /* skip past { or = */
 
-		while (*end_address == ' ' || *end_address == '\t')
+		while (*end_address == ' ' || *end_address == '\t' || (unsigned char)*end_address == 0xA0)
 			end_address++;
 	}
 
@@ -270,11 +271,11 @@ static char *remove_whitespace(char *string, int remove_colon_and_brace)
 	char *end;
 
 	start = string;
-	while (*start == ' ' || *start == '\t')
+	while (*start == ' ' || *start == '\t' || (unsigned char)*start == 0xA0)
 		start++;
 
 	end = start+(strlen(start))-1;
-	while ((*end == ' ' || *end == '\t' || (remove_colon_and_brace && (*end == ':' || *end == '{'))) && end > start)
+	while ((*end == ' ' || *end == '\t' || (unsigned char)*end == 0xA0 || (remove_colon_and_brace && (*end == ':' || *end == '{'))) && end > start)
 		end--;
 	if (*end != '\0')
 		*(end + 1) = '\0';
@@ -331,7 +332,7 @@ static int parse_section(FILE *fp,
 		 * Clear out white space and tabs
 		 */
 		for (i = strlen (line) - 1; i > -1; i--) {
-			if (line[i] == '\t' || line[i] == ' ') {
+			if (line[i] == '\t' || line[i] == ' ' || (unsigned char)line[i] == 0xA0) {
 				line[i] = '\0';
 			} else {
 				break;
@@ -340,7 +341,7 @@ static int parse_section(FILE *fp,
 
 		ignore_line = 1;
 		for (i = 0; i < strlen (line); i++) {
-			if (line[i] != '\t' && line[i] != ' ') {
+			if (line[i] != '\t' && line[i] != ' ' && (unsigned char)line[i] != 0xA0) {
 				if (line[i] != '#')
 					ignore_line = 0;
 
@@ -729,6 +730,7 @@ static int main_config_parser_cb(const char *path,
 			    (strcmp(path, "totem.max_messages") == 0) ||
 			    (strcmp(path, "totem.miss_count_const") == 0) ||
 			    (strcmp(path, "totem.knet_pmtud_interval") == 0) ||
+			    (strcmp(path, "totem.knet_mtu") == 0) ||
 			    (strcmp(path, "totem.knet_compression_threshold") == 0) ||
 			    (strcmp(path, "totem.netmtu") == 0)) {
 				val_type = ICMAP_VALUETYPE_UINT32;
@@ -949,6 +951,8 @@ static int main_config_parser_cb(const char *path,
 				kv_item->key = strdup(key);
 				kv_item->value = strdup(value);
 				if (kv_item->key == NULL || kv_item->value == NULL) {
+					free(kv_item->key);
+					free(kv_item->value);
 					free(kv_item);
 					*error_string = "Can't alloc memory";
 
@@ -986,6 +990,8 @@ static int main_config_parser_cb(const char *path,
 				kv_item->key = strdup(key);
 				kv_item->value = strdup(value);
 				if (kv_item->key == NULL || kv_item->value == NULL) {
+					free(kv_item->key);
+					free(kv_item->value);
 					free(kv_item);
 					*error_string = "Can't alloc memory";
 
@@ -1044,6 +1050,8 @@ static int main_config_parser_cb(const char *path,
 			kv_item->key = strdup(key);
 			kv_item->value = strdup(value);
 			if (kv_item->key == NULL || kv_item->value == NULL) {
+				free(kv_item->key);
+				free(kv_item->value);
 				free(kv_item);
 				*error_string = "Can't alloc memory";
 

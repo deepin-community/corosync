@@ -1,3 +1,7 @@
 Fix-various-typos-in-ChangeLog.patch
 Enable-PrivateTmp-in-the-systemd-service-files.patch
 Make-the-example-config-valid.patch
+Revert-logrotate-Use-copytruncate-method-by-default.patch
+totemsrp-Check-size-of-orf_token-msg.patch
+totemsrp-Return-error-if-sanity-check-fails.patch
+totemsrp-Fix-integer-overflow-in-memb_join_sanity.patch

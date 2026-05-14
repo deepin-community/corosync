@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2005 MontaVista Software, Inc.
- * Copyright (c) 2006-2012 Red Hat, Inc.
+ * Copyright (c) 2006-2022 Red Hat, Inc.
  *
  * Author: Steven Dake (sdake@redhat.com)
  *
@@ -167,6 +167,7 @@ struct totem_config {
 	unsigned int node_id;
 	unsigned int clear_node_high_bit;
 	unsigned int knet_pmtud_interval;
+	unsigned int knet_mtu;
 
 	/*
 	 * key information
@@ -243,6 +244,8 @@ struct totem_config {
 	enum totem_ip_version_enum ip_version;
 
 	unsigned int block_unlisted_ips;
+
+	unsigned int cancel_token_hold_on_retransmit;
 
 	void (*totem_memb_ring_id_create_or_load) (
 	    struct memb_ring_id *memb_ring_id,
