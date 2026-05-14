@@ -446,10 +446,13 @@ AUTOHEADER = @AUTOHEADER@
 AUTOMAKE = @AUTOMAKE@
 AWK = @AWK@
 BASHPATH = @BASHPATH@
+BINDGEN = @BINDGEN@
+CARGO = @CARGO@
 CC = @CC@
 CCDEPMODE = @CCDEPMODE@
 CFG_SONAME = @CFG_SONAME@
 CFLAGS = @CFLAGS@
+CLIPPY = @CLIPPY@
 CMAP_SONAME = @CMAP_SONAME@
 COROSYSCONFDIR = @COROSYSCONFDIR@
 CPG_SONAME = @CPG_SONAME@
@@ -515,6 +518,11 @@ PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
 PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 QUORUM_SONAME = @QUORUM_SONAME@
 RANLIB = @RANLIB@
+RUSTC = @RUSTC@
+RUSTDOC = @RUSTDOC@
+RUSTFMT = @RUSTFMT@
+RUST_FLAGS = @RUST_FLAGS@
+RUST_TARGET_DIR = @RUST_TARGET_DIR@
 SAM_SONAME = @SAM_SONAME@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
@@ -550,6 +558,7 @@ build_cpu = @build_cpu@
 build_os = @build_os@
 build_vendor = @build_vendor@
 builddir = @builddir@
+corosyncrustver = @corosyncrustver@
 datadir = @datadir@
 datarootdir = @datarootdir@
 docdir = @docdir@
@@ -599,6 +608,8 @@ EXTRA_DIST = autogen.sh $(SPEC).in \
 			  build-aux/git-version-gen \
 			  build-aux/gitlog-to-changelog \
 			  build-aux/release.mk \
+			  build-aux/rust.mk \
+			  build-aux/rust-regen.sh \
 			  .version
 
 ACLOCAL_AMFLAGS = -I m4
@@ -609,7 +620,7 @@ MAINTAINERCLEANFILES = Makefile.in aclocal.m4 configure depcomp \
 
 dist_doc_DATA = LICENSE INSTALL README.recovery AUTHORS
 SUBDIRS = include common_lib lib exec tools test pkgconfig \
-			  man init conf vqsim
+			  man init conf vqsim bindings
 
 @AUGTOOL_TRUE@check_SCRIPTS = test_lense.sh
 @AUGTOOL_TRUE@TESTS = $(check_SCRIPTS)

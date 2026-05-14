@@ -10,10 +10,10 @@ isn't upstreamable.
  1 file changed, 8 insertions(+), 8 deletions(-)
 
 diff --git a/ChangeLog b/ChangeLog
-index 824141d..17b930c 100644
+index f90fce2..26f7235 100644
 --- a/ChangeLog
 +++ b/ChangeLog
-@@ -9617,7 +9617,7 @@
+@@ -10163,7 +10163,7 @@
  
  2012-02-07  Fabio M. Di Nitto  <fdinitto@redhat.com>
  
@@ -22,7 +22,7 @@ index 824141d..17b930c 100644
  	Reviewed-by: Christine Caulfield <ccaulfie@redhat.com>
  
  2012-02-07  Angus Salkeld  <asalkeld@redhat.com>
-@@ -9802,7 +9802,7 @@
+@@ -10348,7 +10348,7 @@
  
  	Honor exec_init_fn call
  	exec_init_fn now either returns NULL (success) or a string which indicates
@@ -31,7 +31,7 @@ index 824141d..17b930c 100644
  	occurs, corosync will exit.  This patch adds ykd and makes other suggestions
  	from Fabio Di Nitto.
  
-@@ -11166,7 +11166,7 @@
+@@ -11712,7 +11712,7 @@
  
  	start 5 nodes randomly at about same time, start 5 nodes randomly at about
  	same time, wait 10 seconds and attempt to send a message.  If message blocks
@@ -40,7 +40,7 @@ index 824141d..17b930c 100644
  	cyclng the nodes and see if the TRY_AGAIN state becomes unblocked.
  
  	If it doesn't the test case has failed
-@@ -11557,7 +11557,7 @@
+@@ -12103,7 +12103,7 @@
  	is these last messages should be delivered after a transitional
  	configuration to maintain SAFE agreement.  We don't have support for
  	SAFE atm, so it is probably safe just to throw these messages away.  Without
@@ -49,7 +49,7 @@ index 824141d..17b930c 100644
  
  	Tested-by: Tim Beale <tlbeale@gmail.com>
  	Reviewed-by: Jan Friesse <jfriesse@redhat.com>
-@@ -19305,7 +19305,7 @@
+@@ -19851,7 +19851,7 @@
  
  2007-08-11  Steven Dake  <sdake@redhat.com>
  
@@ -58,7 +58,7 @@ index 824141d..17b930c 100644
  	git-svn-id: http://svn.fedorahosted.org/svn/corosync/trunk@1420 fd59a12c-fef9-0310-b244-a6a79926bd2f
  
  	Allow make doxygen to work properly
-@@ -19648,7 +19648,7 @@
+@@ -20194,7 +20194,7 @@
  
  2006-11-10  Steven Dake  <sdake@redhat.com>
  
@@ -67,7 +67,7 @@ index 824141d..17b930c 100644
  	git-svn-id: http://svn.fedorahosted.org/svn/corosync/trunk@1299 fd59a12c-fef9-0310-b244-a6a79926bd2f
  
  	Recovery algorithms described in this document.
-@@ -25822,13 +25822,13 @@
+@@ -26368,13 +26368,13 @@
  
  2004-07-12  Steven Dake  <sdake@broked.org>
  

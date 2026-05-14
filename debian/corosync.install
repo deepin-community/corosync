@@ -1,5 +1,5 @@
 etc/logrotate.d/corosync
-lib/systemd/system/corosync.service
+usr/lib/systemd/system/corosync.service
 usr/bin/corosync-blackbox
 usr/bin/corosync-xmlproc
 usr/sbin/corosync

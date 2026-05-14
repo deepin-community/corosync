@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2002-2005 MontaVista Software, Inc.
- * Copyright (c) 2006-2019 Red Hat, Inc.
+ * Copyright (c) 2006-2022 Red Hat, Inc.
  *
  * All rights reserved.
  *
@@ -81,6 +81,7 @@
 #define MAX_MESSAGES				17
 #define MISS_COUNT_CONST			5
 #define BLOCK_UNLISTED_IPS			1
+#define CANCEL_TOKEN_HOLD_ON_RETRANSMIT		0
 /* This constant is not used for knet */
 #define UDP_NETMTU                              1500
 
@@ -90,6 +91,7 @@
 #define KNET_PING_PRECISION                     2048
 #define KNET_PONG_COUNT                         2
 #define KNET_PMTUD_INTERVAL                     30
+#define KNET_MTU                                0
 #define KNET_DEFAULT_TRANSPORT                  KNET_TRANSPORT_UDP
 
 #define DEFAULT_PORT				5405
@@ -136,6 +138,8 @@ static void *totem_get_param_by_name(struct totem_config *totem_config, const ch
 		return &totem_config->miss_count_const;
 	if (strcmp(param_name, "totem.knet_pmtud_interval") == 0)
 		return &totem_config->knet_pmtud_interval;
+	if (strcmp(param_name, "totem.knet_mtu") == 0)
+		return &totem_config->knet_mtu;
 	if (strcmp(param_name, "totem.knet_compression_threshold") == 0)
 		return &totem_config->knet_compression_threshold;
 	if (strcmp(param_name, "totem.knet_compression_level") == 0)
@@ -144,6 +148,8 @@ static void *totem_get_param_by_name(struct totem_config *totem_config, const ch
 		return totem_config->knet_compression_model;
 	if (strcmp(param_name, "totem.block_unlisted_ips") == 0)
 		return &totem_config->block_unlisted_ips;
+	if (strcmp(param_name, "totem.cancel_token_hold_on_retransmit") == 0)
+		return &totem_config->cancel_token_hold_on_retransmit;
 
 	return NULL;
 }
@@ -332,6 +338,7 @@ void totem_volatile_config_read (struct totem_config *totem_config, icmap_map_t 
 
 	totem_volatile_config_set_uint32_value(totem_config, temp_map, "totem.miss_count_const", deleted_key, MISS_COUNT_CONST, 0);
 	totem_volatile_config_set_uint32_value(totem_config, temp_map, "totem.knet_pmtud_interval", deleted_key, KNET_PMTUD_INTERVAL, 0);
+	totem_volatile_config_set_uint32_value(totem_config, temp_map, "totem.knet_mtu", deleted_key, KNET_MTU, 0);
 
 	totem_volatile_config_set_uint32_value(totem_config, temp_map, "totem.token_retransmit", deleted_key,
 	   (int)(totem_config->token_timeout / (totem_config->token_retransmits_before_loss_const + 0.2)), 0);
@@ -365,6 +372,9 @@ void totem_volatile_config_read (struct totem_config *totem_config, icmap_map_t 
 
 	totem_volatile_config_set_boolean_value(totem_config, temp_map, "totem.block_unlisted_ips", deleted_key,
 	    BLOCK_UNLISTED_IPS);
+
+	totem_volatile_config_set_boolean_value(totem_config, temp_map, "totem.cancel_token_hold_on_retransmit",
+	    deleted_key, CANCEL_TOKEN_HOLD_ON_RETRANSMIT);
 }
 
 int totem_volatile_config_validate (
@@ -731,7 +741,7 @@ static int find_local_node(icmap_map_t map, int use_cache)
 	}
 
 	res = uname(&utsname);
-	if (res) {
+	if (res < 0) {
 		return -1;
 	}
 	node = utsname.nodename;
@@ -1147,11 +1157,12 @@ static void calc_knet_ping_timers(struct totem_config *totem_config)
  * (set to 0), and ips which are only in set1 or set2 remains untouched.
  * totempg_node_add/remove is called.
  */
-static void compute_and_set_totempg_interfaces(struct totem_interface *set1,
+static int compute_and_set_totempg_interfaces(struct totem_interface *set1,
 	struct totem_interface *set2)
 {
 	int ring_no, set1_pos, set2_pos;
 	struct totem_ip_address empty_ip_address;
+	int res = 0;
 
 	memset(&empty_ip_address, 0, sizeof(empty_ip_address));
 
@@ -1207,10 +1218,13 @@ static void compute_and_set_totempg_interfaces(struct totem_interface *set1,
 					totemip_print(&set2[ring_no].member_list[set2_pos]),
 					ring_no);
 
-				totempg_member_add(&set2[ring_no].member_list[set2_pos], ring_no);
+				if (totempg_member_add(&set2[ring_no].member_list[set2_pos], ring_no)) {
+					res = -1;
+				}
 			}
 		}
 	}
+	return res;
 }
 
 /*
@@ -2404,10 +2418,11 @@ int totemconfig_configure_new_params(
 	return 0;
 }
 
-void totemconfig_commit_new_params(
+int totemconfig_commit_new_params(
 	struct totem_config *totem_config,
 	icmap_map_t map)
 {
+	int res;
 	struct totem_interface *new_interfaces = NULL;
 
 	new_interfaces = malloc (sizeof (struct totem_interface) * INTERFACE_MAX);
@@ -2417,13 +2432,20 @@ void totemconfig_commit_new_params(
 	/* Set link parameters including local_ip */
 	configure_totem_links(totem_config, map);
 
-	/* Add & remove nodes */
-	compute_and_set_totempg_interfaces(totem_config->orig_interfaces, new_interfaces);
+	/* Add & remove nodes & link properties */
+	res = compute_and_set_totempg_interfaces(totem_config->orig_interfaces, new_interfaces);
 
 	/* Does basic global params (like compression) */
 	totempg_reconfigure();
 
 	free(new_interfaces);
+
+	/*
+	 * On a reload this return is ignored because it's too late to do anything about it,
+	 * but errors are reported back via cmap.
+	 */
+	return res;
+
 }
 
 static void add_totem_config_notification(struct totem_config *totem_config)

@@ -140,6 +140,7 @@ am_corosync_cfgtool_OBJECTS = corosync-cfgtool.$(OBJEXT) \
 corosync_cfgtool_OBJECTS = $(am_corosync_cfgtool_OBJECTS)
 am__DEPENDENCIES_1 =
 corosync_cfgtool_DEPENDENCIES = $(am__DEPENDENCIES_1) \
+	$(top_builddir)/common_lib/libcorosync_common.la \
 	$(top_builddir)/lib/libcfg.la $(top_builddir)/lib/libcmap.la
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
@@ -148,11 +149,13 @@ am__v_lt_1 =
 corosync_cmapctl_SOURCES = corosync-cmapctl.c
 corosync_cmapctl_OBJECTS = corosync-cmapctl.$(OBJEXT)
 corosync_cmapctl_DEPENDENCIES = $(am__DEPENDENCIES_1) \
+	$(top_builddir)/common_lib/libcorosync_common.la \
 	$(top_builddir)/lib/libcmap.la
 corosync_cpgtool_SOURCES = corosync-cpgtool.c
 corosync_cpgtool_OBJECTS = corosync-cpgtool.$(OBJEXT)
 corosync_cpgtool_DEPENDENCIES = $(am__DEPENDENCIES_1) \
-	$(top_builddir)/lib/libcfg.la $(top_builddir)/lib/libcpg.la
+	$(top_builddir)/lib/libcfg.la $(top_builddir)/lib/libcpg.la \
+	$(top_builddir)/common_lib/libcorosync_common.la
 corosync_keygen_SOURCES = corosync-keygen.c
 corosync_keygen_OBJECTS = corosync-keygen.$(OBJEXT)
 corosync_keygen_LDADD = $(LDADD)
@@ -162,7 +165,8 @@ corosync_notifyd_OBJECTS =  \
 corosync_notifyd_DEPENDENCIES = $(am__DEPENDENCIES_1) \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
 	$(am__DEPENDENCIES_1) $(top_builddir)/lib/libcmap.la \
-	$(top_builddir)/lib/libcfg.la $(top_builddir)/lib/libquorum.la
+	$(top_builddir)/lib/libcfg.la $(top_builddir)/lib/libquorum.la \
+	$(top_builddir)/common_lib/libcorosync_common.la
 corosync_notifyd_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC \
 	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=link $(CCLD) \
 	$(corosync_notifyd_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) \
@@ -173,7 +177,8 @@ corosync_quorumtool_OBJECTS = $(am_corosync_quorumtool_OBJECTS)
 corosync_quorumtool_DEPENDENCIES = $(am__DEPENDENCIES_1) \
 	$(top_builddir)/lib/libcmap.la $(top_builddir)/lib/libcfg.la \
 	$(top_builddir)/lib/libquorum.la \
-	$(top_builddir)/lib/libvotequorum.la
+	$(top_builddir)/lib/libvotequorum.la \
+	$(top_builddir)/common_lib/libcorosync_common.la
 am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
 am__vpath_adj = case $$p in \
     $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
@@ -279,10 +284,13 @@ AUTOHEADER = @AUTOHEADER@
 AUTOMAKE = @AUTOMAKE@
 AWK = @AWK@
 BASHPATH = @BASHPATH@
+BINDGEN = @BINDGEN@
+CARGO = @CARGO@
 CC = @CC@
 CCDEPMODE = @CCDEPMODE@
 CFG_SONAME = @CFG_SONAME@
 CFLAGS = @CFLAGS@
+CLIPPY = @CLIPPY@
 CMAP_SONAME = @CMAP_SONAME@
 COROSYSCONFDIR = @COROSYSCONFDIR@
 CPG_SONAME = @CPG_SONAME@
@@ -348,6 +356,11 @@ PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
 PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 QUORUM_SONAME = @QUORUM_SONAME@
 RANLIB = @RANLIB@
+RUSTC = @RUSTC@
+RUSTDOC = @RUSTDOC@
+RUSTFMT = @RUSTFMT@
+RUST_FLAGS = @RUST_FLAGS@
+RUST_TARGET_DIR = @RUST_TARGET_DIR@
 SAM_SONAME = @SAM_SONAME@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
@@ -383,6 +396,7 @@ build_cpu = @build_cpu@
 build_os = @build_os@
 build_vendor = @build_vendor@
 builddir = @builddir@
+corosyncrustver = @corosyncrustver@
 datadir = @datadir@
 datarootdir = @datarootdir@
 docdir = @docdir@
@@ -436,23 +450,28 @@ EXTRA_DIST = corosync-xmlproc.sh \
 
 corosync_cfgtool_SOURCES = corosync-cfgtool.c util.c
 corosync_quorumtool_SOURCES = corosync-quorumtool.c util.c
-corosync_cmapctl_LDADD = $(LIBQB_LIBS) $(top_builddir)/lib/libcmap.la
-corosync_cfgtool_LDADD = $(LIBQB_LIBS) $(top_builddir)/lib/libcfg.la $(top_builddir)/lib/libcmap.la
+corosync_cmapctl_LDADD = $(LIBQB_LIBS) $(top_builddir)/common_lib/libcorosync_common.la $(top_builddir)/lib/libcmap.la
+corosync_cfgtool_LDADD = $(LIBQB_LIBS) $(top_builddir)/common_lib/libcorosync_common.la \
+			  $(top_builddir)/lib/libcfg.la $(top_builddir)/lib/libcmap.la
+
 corosync_cpgtool_LDADD = $(LIBQB_LIBS) $(top_builddir)/lib/libcfg.la \
-			  $(top_builddir)/lib/libcpg.la
+			  $(top_builddir)/lib/libcpg.la \
+			  $(top_builddir)/common_lib/libcorosync_common.la
 
 corosync_quorumtool_LDADD = $(LIBQB_LIBS) \
 			    $(top_builddir)/lib/libcmap.la \
 			    $(top_builddir)/lib/libcfg.la \
 			    $(top_builddir)/lib/libquorum.la \
-			    $(top_builddir)/lib/libvotequorum.la
+			    $(top_builddir)/lib/libvotequorum.la \
+			    $(top_builddir)/common_lib/libcorosync_common.la
 
 corosync_notifyd_CFLAGS = $(DBUS_CFLAGS) $(libsystemd_CFLAGS)
 corosync_notifyd_LDADD = $(LIBQB_LIBS) $(DBUS_LIBS) $(SNMP_LIBS) \
 			    $(libsystemd_LIBS) \
 			    $(top_builddir)/lib/libcmap.la \
 			    $(top_builddir)/lib/libcfg.la \
-			    $(top_builddir)/lib/libquorum.la
+			    $(top_builddir)/lib/libquorum.la \
+			    $(top_builddir)/common_lib/libcorosync_common.la
 
 all: all-am
 

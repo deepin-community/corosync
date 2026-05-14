@@ -1,3 +1,549 @@
+2024-10-31  Christine Caulfield  <ccaulfie@redhat.com>
+
+	rust: Update to latest standards
+	Updating to Rust 2021 is a no-op (but worth doing for future),
+	I've also taken this opportunity to use the latest bitflags crate.
+
+	Reviewed-by: Jan Friesse <jfriesse@redhat.com>
+
+	totemsrp: Fix orf_token stats
+	Previously, orf_token_tx was only incremented on initial send,
+	this is obviously wrong and resulted in the TX count being
+	significantly lower than any RX count. Now we increment it every
+	time the ORF token is sent or resent.
+
+	As a quick test, on a single node system the RX and TX stats
+	will now match.
+
+	Reviewed-by: Jan Friesse <jfriesse@redhat.com>
+
+2024-10-23  Jan Friesse  <jfriesse@redhat.com>
+
+	totem: Use uint64_t type and QB_TIME_NS_IN_MSEC
+	Function message_handler_orf_token contains extra debug info enabled by
+	defining GIVEINFO. Insted of using long long unsigned int use better
+	suited uint64_t and make use of QB_TIME_NS_IN_MSEC constant instead
+	of hardcoded number. Also compile tv_old conditionally so it is not used
+	by accident.
+
+	Reviewed-by: Christine Caulfield <ccaulfie@redhat.com>
+
+	totem: Use proper timestamp type for token warning
+	Timestamp diff is very unlikely to be larger than 32-bit integer but it
+	is still worth to use 64-bit.
+
+	Reviewed-by: Christine Caulfield <ccaulfie@redhat.com>
+
+	stats: Store token rx and tx timestamps as 64-bit
+	Token rx and tx timestamps were computed and stored as 32-bit unsigned
+	integer but substracted in other parts of code from 64-bit integer.
+	Result was, that node with uptime larger than 49.71 days
+	(2^32/(1000*60*60*24)) reported wrong numbers for
+	stats.srp.time_since_token_last_received and in log message during long
+	pause (function timer_function_orf_token_warning).
+
+	Solution is to store rx and tx data as 64-bit integer.
+
+	Fixes #761
+
+	Reviewed-by: Christine Caulfield <ccaulfie@redhat.com>
+
+2024-09-19  Christine Caulfield  <ccaulfie@redhat.com>
+
+	rust: fix clippy warning in rust 1.81
+	Reviewed-by: Jan Friesse <jfriesse@redhat.com>
+
+2024-09-02  Jan Friesse  <jfriesse@redhat.com>
+
+	coroparse: Free kv_item key and value on failure
+	If strdup of kv_item key or value failed only kv_item itself was freed.
+	Free also key and value (kv_item is zeroed so free of NULL variable is
+	safe).
+
+	Reviewed-by: Christine Caulfield <ccaulfie@redhat.com>
+
+	icmap: Free memory if qb_map_notify_add fails
+	Reviewed-by: Christine Caulfield <ccaulfie@redhat.com>
+
+	cfg: Free new_config interfaces on failure
+	new_config interfaces was freed on success, but not if some previous
+	configuration step failed.
+
+	Solution is to move free of interfaces to same point as where
+	orig_interfaces are freed.
+
+	Reviewed-by: Christine Caulfield <ccaulfie@redhat.com>
+
+2024-08-07  Alexander Aring  <aahringo@redhat.com>
+
+	main: support lock pid file arg
+	This patch adds support to change the default corosync pid file lock
+	path. This is useful to run corosync net namespace environment only and
+	since the pid lock file cannot be clarified over the conf because the
+	pid lock file exists before config parsing we allow the user to specify
+	it over the command line.
+
+	Reviewed-by: Jan Friesse <jfriesse@redhat.com>
+
+2024-08-05  Jan Friesse  <jfriesse@redhat.com>
+
+	man: fix a typo in cpg_model_initialize
+	Reviewed-by: Christine Caulfield <ccaulfie@redhat.com>
+
+	man: Improve quorum provider formatting
+	As suggested by Christine Caulfield split long sentence so now paragraph
+	follows same formatting style as other options hopefully making
+	it less confusing.
+
+	Reviewed-by: Christine Caulfield <ccaulfie@redhat.com>
+
+2024-07-04  Christine Caulfield  <ccaulfie@redhat.com>
+
+	rust: tests return errors and don't hang
+	Reviewed-by: Jan Friesse <jfriesse@redhat.com>
+
+	rust: Improve Rust bindings
+	The big change here is that all API calls now take a &Handle
+	rather than making a copy. This, apart from being more sensible
+	and efficient, allows us to implment Drop on the handle so that
+	it will call _free() when it goes out of scope.
+
+	There's some jiggery-pokery with a clone flag in there now
+	because of callbacks that can return a valid handle, and we
+	want those to be Drop'ed sensibly.
+
+	Reviewed-by: Jan Friesse <jfriesse@redhat.com>
+
+2024-05-28  Ferenc Wágner  <wferi@debian.org>
+
+	Move corosync-notifyd policy file into $(datadir)/dbus-1/system.d
+	As per dbus-daemon(1):
+
+	> Third-party packages would historically install XML files into
+	> /etc/dbus-1/system.d, but this practice is now considered to be
+	> deprecated: that directory should be treated as reserved for the
+	> system administrator.
+
+	Reviewed-by: Jan Friesse <jfriesse@redhat.com>
+
+2024-05-02  xin liang  <xliang@suse.com>
+
+	man: corosync.conf: Multi improvements
+	- Add default value 5405 for mcastport
+	- Add brief introduction for UDP/UDPU/KNET transport
+	- Keep format consistent (use uppercase) for above 3 transport types
+
+	Reviewed-by: Jan Friesse <jfriesse@redhat.com>
+
+2024-03-12  Jan Friesse  <jfriesse@redhat.com>
+
+	totem: Fix reference links
+	Link Corosync project archived copy of Yair Amir's PhD thesis
+	and paper about totem protocol.
+
+	Reviewed-by: Fabio M. Di Nitto <fdinitto@redhat.com>
+
+2024-02-05  Christine Caulfield  <ccaulfie@redhat.com>
+
+	Report crypto errors back to cfg reload
+	Because crypto changing happens in the 'commit' phase
+	of the reload and we can't get sure that knet will
+	allow the new parameters, the result gets ignored.
+	This can happen in FIPS mode if a non-FIPS cipher
+	is requested.
+
+	This patch reports the errors back in a cmap key
+	so that the command-line can spot those errors
+	and report them back to the user.
+
+	It also restores the internal values for crypto
+	so that subsequent attempts to change things have
+	predictable results. Otherwise further attempts can
+	do nothing but not report any errors back.
+
+	I've also added some error reporting back for the
+	knet ping counters using this mechanism.
+
+	The alternative to all of this would be to check for FIPS
+	in totemconfig.c and then exclude certain options, but this
+	would be duplicating code that could easily get out of sync.
+
+	This system could also be a useful mechanism for reporting
+	back other 'impossible' errors.
+
+	Reviewed-by: Jan Friesse <jfriesse@redhat.com>
+
+2024-01-02  Christine Caulfield  <ccaulfie@redhat.com>
+
+	Fix up the library .versions files
+	I've only added missing symbols and removed old ones. The actual
+	library version numbers might need assessing too.
+
+	Reviewed-by: Fabio M. Di Nitto <fdinitto@redhat.com>
+
+2023-11-28  Jan Friesse  <jfriesse@redhat.com>
+
+	configure: Fix building of rust for release
+	Set rustver correctly for both release version string
+	(for example 3.1.7) and git one (3.1.7.1-982f).
+
+	corosyncrustver must be escaped by '[]' because sed is using these two
+	characters and m4 would remove them.
+
+	Reviewed-by: Fabio M. Di Nitto <fdinitto@redhat.com>
+
+2023-11-20  Jan Friesse  <jfriesse@redhat.com>
+
+	License: Fix year (mainly to fix rust building)
+
+2023-11-06  Machiry Aravind Kumar  <makrvcs@gmail.com>
+
+	Handling integer overflow issues
+	Avoiding signed integer overflows by converting size
+	related types to size_t.
+
+	Reviewed-by: Jan Friesse <jfriesse@redhat.com>
+
+2023-10-09  Christine Caulfield  <ccaulfie@redhat.com>
+
+	rust: Improve vector initialisation
+	(also silence clippy in rust 1.73)
+
+	Reviewed-by: Jan Friesse <jfriesse@redhat.com>
+
+2023-10-06  Christine Caulfield  <ccaulfie@redhat.com>
+
+	man: Update the corosync_overview manpage
+	The bits about IPv6 were out of date (for knet).
+
+	Added reference to the corosync-*tool utilities so that
+	people know they are there
+
+	Reviewed-by: Jan Friesse <jfriesse@redhat.com>
+
+2023-10-05  Christine Caulfield  <ccaulfie@redhat.com>
+
+	config: Fail to start if ping timers are invalid
+	This required adding a lot of return values to two previously
+	'void' functions. I did two rather than just the one that was
+	needed because it seemed to make sense to do them both together.
+
+	Although these functions now return errors, they are probably
+	still ignored higher up. this really needs a comprehensive audit.
+
+	Reviewed-by: Jan Friesse <jfriesse@redhat.com>
+
+2023-08-30  Christine Caulfield  <ccaulfie@redhat.com>
+
+	rust: Remove some pointless casts
+	As pointed out by clippy in Rust 1.72
+
+	Reviewed-by: Jan Friesse <jfriesse@redhat.com>
+
+2023-08-09  Christine Caulfield  <ccaulfie@redhat.com>
+
+	parser: Allow a non-breaking space as 'whitespace'
+	non-breaking spaces are depressingly easy to enter in some
+	editors and can make a mess of a corosync.conf file, as the
+	character can break keyword names and generate some very strange
+	error messages.
+
+	So here we include it (0xA0) as a valid whitespace character.
+	The (unsigned char) cast is for portability - Intel systems use
+	signed chars so we'd need something there, but this should
+	protect us against unsigned char systems too.
+
+	No attempt is made to protect against UTF-8 characters, that's very
+	much out of scope for this project I suspect.
+
+	ref: https://github.com/corosync/corosync/issues/723
+
+	Reviewed-by: Jan Friesse <jfriesse@redhat.com>
+
+2023-06-06  Jan Friesse  <jfriesse@redhat.com>
+
+	spec: Migrate to SPDX license
+	Both Fedora and openSUSE now recommends to use SPDX shortname format
+	for License.
+
+	Reviewed-by: Fabio M. Di Nitto <fdinitto@redhat.com>
+
+2023-05-29  Jan Friesse  <jfriesse@redhat.com>
+
+	build: Fix rust make -j build dep for distcheck
+	"Inspired" by similar patch from kronosnet
+	(531ebe195a955d9a1c8b762443ecab3edca95ad4)
+
+	Reviewed-by: Fabio M. Di Nitto <fdinitto@redhat.com>
+
+2023-05-23  Jan Friesse  <jfriesse@redhat.com>
+
+	rust: Remove tests from check scripts
+	Rust test are equivalent of C tests (so interactive one) and not
+	automated tests, so it shouldn't be executed by make check.
+
+	Reviewed-by: Christine Caulfield <ccaulfie@redhat.com>
+
+2023-04-24  Christine Caulfield  <ccaulfie@redhat.com>
+
+	Rust: Remove obsolete bindgen flag
+	--size_t-is-usize has been deprecated for a while and is
+	removed in bindgen 0.64
+
+	Reviewed-by: Jan Friesse <jfriesse@redhat.com>
+
+2023-04-03  Christine Caulfield  <ccaulfie@redhat.com>
+
+	knet: use knet TRACE logging level if available
+	Reviewed-by: Jan Friesse <jfriesse@redhat.com>
+
+2023-01-27  Christine Caulfield  <ccaulfie@redhat.com>
+
+	Rust: 'fix' clippys for Rust 1.67
+	This is clippy getting a bit above itself IMHO
+
+	Reviewed-by: Jan Friesse <jfriesse@redhat.com>
+
+2023-01-26  Christine Caulfield  <ccaulfie@redhat.com>
+
+	rust: Make it work on FreeBSD
+	Reviewed-by: Jan Friesse <jfriesse@redhat.com>
+
+	bindings: Add Rust bindings
+	Reviewed-by: Jan Friesse <jfriesse@redhat.com>
+
+2022-10-24  Jan Friesse  <jfriesse@redhat.com>
+
+	totemconfig: Add support for knet_mtu
+	totem.knet_mtu is new configuration option which allows setting
+	of automatic or manual knet MTU.
+
+	Also reload of totem.knet_pmtud_interval is fixed now, so it works when
+	key is deleted (and set back default value).
+
+	Reviewed-by: Christine Caulfield <ccaulfie@redhat.com>
+
+2022-07-27  Jan Friesse  <jfriesse@redhat.com>
+
+	configure: Modernize configure.ac a bit
+	... to make 2.71 happy. Also increase minimum version to 2.69 (10 years
+	old version so should be compatible enough).
+
+	Reviewed-by: Fabio M. Di Nitto <fdinitto@redhat.com>
+
+2022-03-31  Christine Caulfield  <ccaulfie@redhat.com>
+
+	log: Configure knet logging to the same as corosync
+	Before this, all knet messages, including debug, were sent
+	over the pipe from knet to corosync and filtered in corosync.
+	This was obviously a waste, so now we tell knet the logging
+	level we need from it and so only get the messages that the
+	user has requested.
+
+	Reviewed-by: Jan Friesse <jfriesse@redhat.com>
+
+2022-03-30  Jan Friesse  <jfriesse@redhat.com>
+
+	logrotate: Use copytruncate method by default
+	The reopen lograte method has two main problems:
+	1. It does fail when corosync is not running (solvable by
+	   adding "|| true")
+	2. If (for some reason, like SELinux) cfgtool -L fails, logrotate
+	   fails and corosync keeps logging into old file. Added "|| true"
+	   makes situation even worse because logrotate removes file but
+	   corosync keeps logging into it.
+
+	Solution is to install copytruncate logrotate snip by default (and
+	keep reopen config file only for reference).
+
+	Reviewed-by: Christine Caulfield <ccaulfie@redhat.com>
+
+2022-03-08  Andreas Grueninger  <andreas.grueninger@noemail.com>
+
+	totemconfig: Check uname return value correctly
+	uname in Solaris/Illumos returns non-negative value when succesful.
+
+	Reviewed-by: Jan Friesse <jfriesse@redhat.com>
+
+2022-02-01  Jan Friesse  <jfriesse@redhat.com>
+
+	totempg: Fix alignment handling
+	Some platforms requires aligned memory access. For such platforms,
+	special code was added using address modulo 4 to check if aligning is
+	needed or not. This may be problem for 64 bits platforms. Also check in
+	app_deliver_fn was incorrect and always true.
+
+	Solution is to use modulo sizeof pointer and add parentheses to fix the
+	check in app_deliver_fn function.
+
+	Reviewed-by: Christine Caulfield <ccaulfie@redhat.com>
+
+2022-01-05  Jan Friesse  <jfriesse@redhat.com>
+
+	pkgconfig: Export corosysconfdir
+	Useful for external code to easily tell where corosync.conf
+	is (in case someone configured it for /usr/local/etc, ...)
+
+	E.g. pacemaker's crm_report collects corosync.conf, and some
+	of its testing tools generate a corosync.conf for a test cluster.
+
+	Reviewed-by: Fabio M. Di Nitto <fdinitto@redhat.com>
+
+2022-01-03  Ferenc Wágner  <wferi@debian.org>
+
+	Remove bashism from configure script
+	This was the real problem behind 384d168: Debian experimental now
+	sports a dash with LINENO support, so configure does not fall back to
+	using bash instead, choking on such bash-only constructs.  Unfortunately
+	this didn't bail out cleanly, just unexpectedly set link_all_deplibs to
+	no, and the error message
+
+	./configure: 13158: test: yes: unexpected operator
+
+	stayed unnoticed in the logs.  Actually, link_all_deplibs=no is the
+	default in Debian, reducing overlinking and causing confusion overall,
+	see https://debbugs.gnu.org/db/13/13920.html for example.
+
+	I think being explicit about used interfaces has its merit, so now that
+	Corosync has it, it might be advantageous to disable link_all_deplibs
+	by default across the board (after this patch re-enables it as a side
+	effect).
+
+	Reviewed-by: Jan Friesse <jfriesse@redhat.com>
+
+2021-11-24  Jan Friesse  <jfriesse@redhat.com>
+
+	totemudpu: Don't block local socketpair
+	Commit to drop packets from unlisted IPs made ifdown case not working
+	because msg_name is unset for socketpair.
+
+	solution is to drop packets from unlisted IPs only when bind state is
+	BIND_STATE_REGULAR.
+
+	Reviewed-by: Christine Caulfield <ccaulfie@redhat.com>
+
+2021-11-10  Jan Friesse  <jfriesse@redhat.com>
+
+	build: Add explicit dependency for used libraries
+	Don't rely on implicit symbol finding (cs_strerror being most prominent
+	example) but rather use explicit one.
+
+	This makes current debian experimental happy (compile source)
+
+	Reviewed-by: Fabio M. Di Nitto <fdinitto@redhat.com>
+
+2021-11-03  Jan Friesse  <jfriesse@redhat.com>
+
+	totemsrp: Switch totempg buffers at the right time
+	Commit 92e0f9c7bb9b4b6a0da8d64bdf3b2e47ae55b1cc added switching of
+	totempg buffers in sync phase. But because buffers got switch too early
+	there was a problem when delivering recovered messages (messages got
+	corrupted and/or lost). Solution is to switch buffers after recovered
+	messages got delivered.
+
+	I think it is worth to describe complete history with reproducers so it
+	doesn't get lost.
+
+	It all started with 402638929e5045ef520a7339696c687fbed0b31b (more info
+	about original problem is described in
+	https://bugzilla.redhat.com/show_bug.cgi?id=820821). This patch
+	solves problem which is way to be reproduced with following reproducer:
+	- 2 nodes
+	- Both nodes running corosync and testcpg
+	- Pause node 1 (SIGSTOP of corosync)
+	- On node 1, send some messages by testcpg
+	  (it's not answering but this doesn't matter). Simply hit ENTER key
+	  few times is enough)
+	- Wait till node 2 detects that node 1 left
+	- Unpause node 1 (SIGCONT of corosync)
+
+	and on node 1 newly mcasted cpg messages got sent before sync barrier,
+	so node 2 logs "Unknown node -> we will not deliver message".
+
+	Solution was to add switch of totemsrp new messages buffer.
+
+	This patch was not enough so new one
+	(92e0f9c7bb9b4b6a0da8d64bdf3b2e47ae55b1cc) was created. Reproducer of
+	problem was similar, just cpgverify was used instead of testcpg.
+	Occasionally when node 1 was unpaused it hang in sync phase because
+	there was a partial message in totempg buffers. New sync message had
+	different frag cont so it was thrown away and never delivered.
+
+	After many years problem was found which is solved by this patch
+	(original issue describe in
+	https://github.com/corosync/corosync/issues/660).
+	Reproducer is more complex:
+	- 2 nodes
+	- Node 1 is rate-limited (used script on the hypervisor side):
+	  ```
+	  iface=tapXXXX
+	  # ~0.1MB/s in bit/s
+	  rate=838856
+	  # 1mb/s
+	  burst=1048576
+	  tc qdisc add dev $iface root handle 1: htb default 1
+	  tc class add dev $iface parent 1: classid 1:1 htb rate ${rate}bps \
+	    burst ${burst}b
+	  tc qdisc add dev $iface handle ffff: ingress
+	  tc filter add dev $iface parent ffff: prio 50 basic police rate \
+	    ${rate}bps burst ${burst}b mtu 64kb "drop"
+	  ```
+	- Node 2 is running corosync and cpgverify
+	- Node 1 keeps restarting of corosync and running cpgverify in cycle
+	  - Console 1: while true; do corosync; sleep 20; \
+	      kill $(pidof corosync); sleep 20; done
+	  - Console 2: while true; do ./cpgverify;done
+
+	And from time to time (reproduced usually in less than 5 minutes)
+	cpgverify reports corrupted message.
+
+	Reviewed-by: Fabio M. Di Nitto <fdinitto@redhat.com>
+
+2021-10-25  Christine Caulfield  <ccaulfie@redhat.com>
+
+	cpghum: Allow to continue if corosync is restarted
+	Reviewed-by: Jan Friesse <jfriesse@redhat.com>
+
+2021-10-18  miharahiro  <hmihara@redhat.com>
+
+	man: Fix consensus timeout
+	The consensus timeout is 1.2 * token_timeout,
+	which has been changeg from 1000 to 3000, so change also consensus
+	timeout.
+
+	Reviewed-by: Christine Caulfield <ccaulfie@redhat.com>
+	Reviewed-by: Jan Friesse <jfriesse@redhat.com>
+
+2021-09-13  Jan Friesse  <jfriesse@redhat.com>
+
+	logsys: Unlock config mutex on error
+	Thanks Ryan Cai <ycaibb@gmail.com> for reporting the problem.
+
+	Reviewed-by: Christine Caulfield <ccaulfie@redhat.com>
+
+2021-08-20  Jan Friesse  <jfriesse@redhat.com>
+
+	totem: Add cancel_hold_on_retransmit config option
+	Previously, existence of retransmit messages canceled holding
+	of token (and never allowed representative to enter token hold
+	state).
+
+	This makes token rotating maximum speed and keeps processor
+	resending messages over and over again - overloading network
+	and reducing chance to successfully deliver the messages.
+
+	Also there were reports of various Antivirus / IPS / IDS which slows
+	down delivery of packets with certain sizes (packets bigger than token)
+	what make Corosync retransmit messages over and over again.
+
+	Proposed solution is to allow representative to enter token hold
+	state when there are only retransmit messages. This allows network to
+	handle overload and/or gives Antivirus/IPS/IDS enough time scan and
+	deliver packets without corosync entering "FAILED TO RECEIVE" state and
+	adding more load to network.
+
+	Reviewed-by: Christine Caulfield <ccaulfie@redhat.com>
+
 2021-08-04  Jan Friesse  <jfriesse@redhat.com>
 
 	totemconfig: Knet nodeid must be < 65536

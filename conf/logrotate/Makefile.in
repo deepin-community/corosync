@@ -188,10 +188,13 @@ AUTOHEADER = @AUTOHEADER@
 AUTOMAKE = @AUTOMAKE@
 AWK = @AWK@
 BASHPATH = @BASHPATH@
+BINDGEN = @BINDGEN@
+CARGO = @CARGO@
 CC = @CC@
 CCDEPMODE = @CCDEPMODE@
 CFG_SONAME = @CFG_SONAME@
 CFLAGS = @CFLAGS@
+CLIPPY = @CLIPPY@
 CMAP_SONAME = @CMAP_SONAME@
 COROSYSCONFDIR = @COROSYSCONFDIR@
 CPG_SONAME = @CPG_SONAME@
@@ -257,6 +260,11 @@ PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
 PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 QUORUM_SONAME = @QUORUM_SONAME@
 RANLIB = @RANLIB@
+RUSTC = @RUSTC@
+RUSTDOC = @RUSTDOC@
+RUSTFMT = @RUSTFMT@
+RUST_FLAGS = @RUST_FLAGS@
+RUST_TARGET_DIR = @RUST_TARGET_DIR@
 SAM_SONAME = @SAM_SONAME@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
@@ -292,6 +300,7 @@ build_cpu = @build_cpu@
 build_os = @build_os@
 build_vendor = @build_vendor@
 builddir = @builddir@
+corosyncrustver = @corosyncrustver@
 datadir = @datadir@
 datarootdir = @datarootdir@
 docdir = @docdir@
@@ -556,13 +565,9 @@ uninstall-am: uninstall-logrotatecorosyncDATA
 	uninstall-am uninstall-logrotatecorosyncDATA
 
 
-@HAVE_QB_LOG_FILE_REOPEN_TRUE@corosync: corosync-reopen.in
-@HAVE_QB_LOG_FILE_REOPEN_TRUE@	$(SED) -e 's#@''LOGDIR@#${LOGDIR}#g' \
-@HAVE_QB_LOG_FILE_REOPEN_TRUE@	       -e 's#@''SBINDIR@#$(sbindir)#g' \
-@HAVE_QB_LOG_FILE_REOPEN_TRUE@	       $< > $@
-@HAVE_QB_LOG_FILE_REOPEN_FALSE@corosync: corosync-copytruncate.in
-@HAVE_QB_LOG_FILE_REOPEN_FALSE@	$(SED) -e 's#@''LOGDIR@#${LOGDIR}#g' \
-@HAVE_QB_LOG_FILE_REOPEN_FALSE@	       $< > $@
+corosync: corosync-copytruncate.in
+	$(SED) -e 's#@''LOGDIR@#${LOGDIR}#g' \
+	       $< > $@
 
 clean-local:
 	rm -f corosync

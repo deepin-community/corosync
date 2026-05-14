@@ -51,13 +51,13 @@ extern int totemknet_initialize (
 	totemsrp_stats_t *stats,
 	void *context,
 
-	void (*deliver_fn) (
+	int (*deliver_fn) (
 		void *context,
 		const void *msg,
 		unsigned int msg_len,
 		const struct sockaddr_storage *system_from),
 
-	void (*iface_change_fn) (
+	int (*iface_change_fn) (
 		void *context,
 		const struct totem_ip_address *iface_address,
 		unsigned int ring_no),
@@ -153,5 +153,7 @@ extern int totemknet_crypto_reconfigure_phase (
 
 extern void totemknet_stats_clear (
 	void *knet_context);
+
+extern void totemknet_configure_log_level (void);
 
 #endif /* TOTEMKNET_H_DEFINED */
